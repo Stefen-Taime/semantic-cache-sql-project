@@ -1,0 +1,14 @@
+{
+  "config": {
+    "storage": {
+      "optimizers": {
+        "default": {
+          "type": "threshold",
+          "threshold": 0.9,
+          "segments_count": 5,
+          "max_segment_size": 10000
+        }
+      }
+    }
+  }
+}

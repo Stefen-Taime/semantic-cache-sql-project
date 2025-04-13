@@ -1,0 +1,71 @@
+# Python virtual environments
+mcpenv/
+venv/
+env/
+ENV/
+.env
+
+# Python cache files
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Distribution / packaging
+dist/
+build/
+*.egg-info/
+
+# Docker
+.docker/
+docker-data/
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+postgres/data/
+
+# Vector DB data
+vector-db/data/
+vector-db/storage/
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+
+# IDE specific files
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+
+# Environment configuration
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Temporary files
+tmp/
+temp/
+
+# Local configuration
+config.local.json
+*.local.yml
+*.local.yaml
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# Service specific
+**/node_modules/
+
+# Generated files
+generated/
+*.generated.*

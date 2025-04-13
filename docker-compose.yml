@@ -1,0 +1,156 @@
+services:
+  # Base vectorielle Qdrant
+  vector-db:
+    image: qdrant/qdrant:v1.3.0
+    ports:
+      - "6333:6333"
+      - "6334:6334"
+    volumes:
+      - qdrant_data:/qdrant/storage
+      - ./vector-db/config:/qdrant/config
+    networks:
+      - semantic-cache-network
+    # Supprimer ou commenter la section healthcheck
+    # healthcheck:
+    #   test: ["CMD", "curl", "-f", "http://localhost:6333/health"]
+    #   interval: 30s
+    #   timeout: 10s
+    #   retries: 3
+    #   start_period: 40s
+
+  # Service d'initialisation Qdrant
+  vector-db-init:
+    build:
+      context: ./vector-db
+      dockerfile: Dockerfile.qdrant
+    command: ["bash", "-c", "sleep 30 && python3 /init_qdrant.py && tail -f /dev/null"]
+    depends_on:
+      - vector-db
+    networks:
+      - semantic-cache-network
+    restart: on-failure:3
+
+  # Base de données PostgreSQL
+  postgres:
+    image: postgres:14
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: semantic_cache_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./postgres/init:/docker-entrypoint-initdb.d
+    networks:
+      - semantic-cache-network
+    # Supprimer ou commenter la section healthcheck
+    # healthcheck:
+    #   test: ["CMD-SHELL", "pg_isready -U postgres"]
+    #   interval: 10s
+    #   timeout: 5s
+    #   retries: 5
+
+  # pgAdmin
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    ports:
+      - "5050:80"
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@example.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    depends_on:
+      - postgres
+    networks:
+      - semantic-cache-network
+    restart: unless-stopped
+
+  # Service d'embeddings
+  embedding-service:
+    build:
+      context: ./embedding-service
+    ports:
+      - "8001:8000"
+    depends_on:
+      - vector-db
+    networks:
+      - semantic-cache-network
+    environment:
+      - VECTOR_DB_HOST=vector-db
+      - VECTOR_DB_PORT=6333
+    restart: unless-stopped
+
+  # Service de validation sémantique
+  semantic-validation-service:
+    build:
+      context: ./semantic-validation-service
+    ports:
+      - "8002:8000"
+    networks:
+      - semantic-cache-network
+    environment:
+      - GROQ_API_KEY=${GROQ_API_KEY}
+    restart: unless-stopped
+
+  # Service de modification SQL
+  sql-mod-service:
+    build:
+      context: ./sql-mod-service
+    ports:
+      - "8003:8000"
+    networks:
+      - semantic-cache-network
+    environment:
+      - GROQ_API_KEY=${GROQ_API_KEY}
+    restart: unless-stopped
+
+  # Service de génération Text-to-SQL
+  text-to-sql-service:
+    build:
+      context: ./text-to-sql-service
+    ports:
+      - "8004:8000"
+    networks:
+      - semantic-cache-network
+    environment:
+      - GROQ_API_KEY=${GROQ_API_KEY}
+    restart: unless-stopped
+
+  # Service d'exécution SQL et orchestrateur
+  executor-service:
+    build:
+      context: ./executor-service
+    ports:
+      - "8000:8000"
+    depends_on:
+      - postgres
+      - embedding-service
+      - semantic-validation-service
+      - sql-mod-service
+      - text-to-sql-service
+    networks:
+      - semantic-cache-network
+    environment:
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=semantic_cache_db
+      - EMBEDDING_SERVICE_URL=http://embedding-service:8000
+      - SEMANTIC_VALIDATION_SERVICE_URL=http://semantic-validation-service:8000
+      - SQL_MOD_SERVICE_URL=http://sql-mod-service:8000
+      - TEXT_TO_SQL_SERVICE_URL=http://text-to-sql-service:8000
+      - VECTOR_DB_HOST=vector-db
+      - VECTOR_DB_PORT=6333
+    restart: unless-stopped
+
+networks:
+  semantic-cache-network:
+    driver: bridge
+
+volumes:
+  qdrant_data:
+  postgres_data:
+  pgadmin_data:
